@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>测试指数分析分页功能</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .table-custom {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        .badge {
+            padding: 8px 12px;
+            font-size: 12px;
+        }
+        .btn-outline-secondary, .btn-outline-success {
+            border-radius: 6px;
+        }
+        .input-group-sm {
+            max-width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1><i class="fas fa-layer-group"></i> 指数分析分页功能测试</h1>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label class="form-label">选择指数</label>
+                <select class="form-select" id="indexSelect">
+                    <option value="">请选择指数</option>
+                    <option value="中证100">中证100指数</option>
+                    <option value="中证200">中证200指数</option>
+                    <option value="沪深300">沪深300指数</option>
+                    <option value="中证500">中证500指数</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label class="form-label">分析类型</label>
+                <select class="form-select" id="analysisType">
+                    <option value="basic">基础分析</option>
+                    <option value="detailed">详细分析</option>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <button class="btn btn-primary w-100 mt-4" onclick="testPagination()">
+                    <i class="fas fa-search"></i> 测试分页
+                </button>
+            </div>
+        </div>
+
+        <div id="indexResult" style="display: none;">
+            <!-- 结果将在这里显示 -->
+        </div>
+    </div>
+
+    <script>
+        // 模拟数据生成函数
+        function generateMockData(indexName, count) {
+            const stocks = [];
+            for (let i = 1; i <= count; i++) {
+                stocks.push({
+                    code: `60000${i.toString().padStart(3, '0')}`,
+                    name: `测试股票${i}`,
+                    current_price: `${(Math.random() * 100 + 10).toFixed(2)}`,
+                    pe: Math.random() * 50 > 30 ? (Math.random() * 30).toFixed(2) : 'N/A',
+                    pb: Math.random() * 10 > 5 ? (Math.random() * 5).toFixed(2) : 'N/A',
+                    market_cap: `${(Math.random() * 10000).toFixed(0)}亿`,
+                    纳入日期: `2025-${String(Math.floor(Math.random() * 12) + 1).padStart(2, '0')}-${String(Math.floor(Math.random() * 28) + 1).padStart(2, '0')}`
+                });
+            }
+            return stocks;
+        }
+
+        // 测试分页功能
+        async function testPagination() {
+            const indexCode = document.getElementById('indexSelect').value;
+            const analysisType = document.getElementById('analysisType').value;
+
+            if (!indexCode) {
+                alert('请选择指数');
+                return;
+            }
+
+            // 根据指数生成模拟数据
+            let stockCount = 100;
+            if (indexCode === '中证200') stockCount = 200;
+            else if (indexCode === '沪深300') stockCount = 283;
+            else if (indexCode === '中证500') stockCount = 424;
+
+            const mockData = {
+                index_name: indexCode,
+                constituents: generateMockData(indexCode, stockCount),
+                html_url: '#mock-report'
+            };
+
+            // 调用分页显示函数
+            displayIndexResult(mockData, analysisType);
+        }
+
+        // 从主页面复制的分页函数（简化版）
+        function displayIndexResult(data, analysisType) {
+            const resultContainer = document.getElementById('indexResult');
+            const constituents = data.constituents || [];
+
+            // 存储全局数据供分页使用
+            window.currentIndexData = data;
+            window.currentAnalysisType = analysisType;
+            window.currentPage = 1;
+            window.pageSize = 20;
+
+            renderIndexResults();
+        }
+
+        // 渲染指数结果（支持分页）
+        function renderIndexResults() {
+            const data = window.currentIndexData;
+            const analysisType = window.currentAnalysisType;
+            const constituents = data.constituents || [];
+            const currentPage = window.currentPage || 1;
+            const pageSize = window.pageSize || 20;
+
+            const resultContainer = document.getElementById('indexResult');
+
+            let html = `
+                <div class="mb-3">
+                    <h5><i class="fas fa-layer-group"></i> ${data.index_name} 指数分析</h5>
+                    <p class="text-muted">分析类型: ${analysisType === 'basic' ? '基础分析' : '详细分析'}（测试模式）</p>
+                </div>
+            `;
+
+            if (constituents.length > 0) {
+                const totalPages = Math.ceil(constituents.length / pageSize);
+                const startIndex = (currentPage - 1) * pageSize;
+                const endIndex = Math.min(startIndex + pageSize, constituents.length);
+                const currentConstituents = constituents.slice(startIndex, endIndex);
+
+                html += `
+                    <div class="mb-3">
+                        <span class="badge badge-primary">成分股数量: ${constituents.length}</span>
+                        <span class="badge badge-info ms-2">当前显示: ${startIndex + 1}-${endIndex} / ${constituents.length}</span>
+                    </div>
+                    <div class="table-custom">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>代码</th>
+                                    <th>名称</th>
+                                    <th>最新价</th>
+                                    ${analysisType === 'detailed' ? '<th>PE</th><th>PB</th><th>市值</th>' : ''}
+                                    <th>状态</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                currentConstituents.forEach(stock => {
+                    html += `
+                        <tr>
+                            <td><strong>${stock.code}</strong></td>
+                            <td>${stock.name}</td>
+                            <td>${stock.current_price}</td>
+                            ${analysisType === 'detailed' ? `
+                                <td>${stock.pe}</td>
+                                <td>${stock.pb}</td>
+                                <td>${stock.market_cap}</td>
+                            ` : ''}
+                            <td><span class="badge badge-success">正常</span></td>
+                        </tr>
+                    `;
+                });
+
+                html += '</tbody></table></div>';
+
+                // 添加分页控件
+                if (totalPages > 1) {
+                    html += `
+                        <nav aria-label="成分股分页">
+                            <ul class="pagination justify-content-center mt-3">
+                                <li class="page-item ${currentPage === 1 ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" onclick="goToPage(${currentPage - 1}); return false;">
+                                        <i class="fas fa-chevron-left"></i> 上一页
+                                    </a>
+                                </li>
+                    `;
+
+                    // 显示页码逻辑
+                    let startPage = Math.max(1, currentPage - 2);
+                    let endPage = Math.min(totalPages, currentPage + 2);
+
+                    if (startPage > 1) {
+                        html += `
+                            <li class="page-item">
+                                <a class="page-link" href="#" onclick="goToPage(1); return false;">1</a>
+                            </li>
+                        `;
+                        if (startPage > 2) {
+                            html += `<li class="page-item disabled"><a class="page-link" href="#">...</a></li>`;
+                        }
+                    }
+
+                    for (let i = startPage; i <= endPage; i++) {
+                        html += `
+                            <li class="page-item ${i === currentPage ? 'active' : ''}">
+                                <a class="page-link" href="#" onclick="goToPage(${i}); return false;">${i}</a>
+                            </li>
+                        `;
+                    }
+
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) {
+                            html += `<li class="page-item disabled"><a class="page-link" href="#">...</a></li>`;
+                        }
+                        html += `
+                            <li class="page-item">
+                                <a class="page-link" href="#" onclick="goToPage(${totalPages}); return false;">${totalPages}</a>
+                            </li>
+                        `;
+                    }
+
+                    html += `
+                                <li class="page-item ${currentPage === totalPages ? 'disabled' : ''}">
+                                    <a class="page-link" href="#" onclick="goToPage(${currentPage + 1}); return false;">
+                                        下一页 <i class="fas fa-chevron-right"></i>
+                                    </a>
+                                </li>
+                            </ul>
+                        </nav>
+
+                        <div class="row mt-3">
+                            <div class="col-md-6">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">每页显示</span>
+                                    <select class="form-select" id="pageSizeSelect" onchange="changePageSize(this.value)">
+                                        <option value="10" ${pageSize === 10 ? 'selected' : ''}>10</option>
+                                        <option value="20" ${pageSize === 20 ? 'selected' : ''}>20</option>
+                                        <option value="50" ${pageSize === 50 ? 'selected' : ''}>50</option>
+                                        <option value="100" ${pageSize === 100 ? 'selected' : ''}>100</option>
+                                    </select>
+                                    <span class="input-group-text">条</span>
+                                </div>
+                            </div>
+                            <div class="col-md-6 text-end">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-secondary btn-sm" onclick="exportToCSV()">
+                                        <i class="fas fa-file-csv"></i> 导出CSV
+                                    </button>
+                                    <button class="btn btn-outline-success btn-sm" onclick="exportToExcel()">
+                                        <i class="fas fa-file-excel"></i> 导出Excel
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-info mt-3">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>测试说明:</strong> 这是使用模拟数据测试分页功能。在实际使用中，请访问主页面进行真实的指数分析。
+                        </div>
+                    `;
+                }
+            }
+
+            resultContainer.innerHTML = html;
+            resultContainer.style.display = 'block';
+        }
+
+        // 分页功能
+        function goToPage(page) {
+            const totalPages = Math.ceil(window.currentIndexData.constituents.length / window.pageSize);
+            if (page >= 1 && page <= totalPages) {
+                window.currentPage = page;
+                renderIndexResults();
+                // 滚动到结果顶部
+                document.getElementById('indexResult').scrollIntoView({ behavior: 'smooth' });
+            }
+        }
+
+        function changePageSize(size) {
+            window.pageSize = parseInt(size);
+            window.currentPage = 1;
+            renderIndexResults();
+        }
+
+        // 导出功能（简化版）
+        function exportToCSV() {
+            const data = window.currentIndexData;
+            const constituents = data.constituents || [];
+
+            if (constituents.length === 0) {
+                alert('没有数据可以导出');
+                return;
+            }
+
+            alert(`导出CSV功能测试成功！\n指数: ${data.index_name}\n成分股数量: ${constituents.length}\n分析类型: ${window.currentAnalysisType}`);
+        }
+
+        function exportToExcel() {
+            const data = window.currentIndexData;
+            const constituents = data.constituents || [];
+
+            if (constituents.length === 0) {
+                alert('没有数据可以导出');
+                return;
+            }
+
+            alert(`导出Excel功能测试成功！\n指数: ${data.index_name}\n成分股数量: ${constituents.length}\n分析类型: ${window.currentAnalysisType}`);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>股票分析测试</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .result-container {
+            background: #f8fafc;
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-top: 1rem;
+            border: 1px solid #e5e7eb;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h2>股票分析功能测试</h2>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <label class="form-label">股票代码</label>
+                <input type="text" class="form-control" id="stockInput" value="000001">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">&nbsp;</label>
+                <button class="btn btn-primary d-block" onclick="testAnalyzeStock()">测试分析</button>
+            </div>
+        </div>
+
+        <div class="result-container" id="stockResult" style="display: none;"></div>
+    </div>
+
+    <script>
+        // 显示股票分析结果
+        function displayStockResult(data) {
+            const resultContainer = document.getElementById('stockResult');
+
+            // 处理API返回的数据格式
+            let stocks = {};
+            let chartUrl = null;
+
+            if (data.data && data.data.stocks) {
+                stocks = data.data.stocks;
+                chartUrl = data.data.chart_url;
+            } else if (data.stocks) {
+                stocks = data.stocks;
+                chartUrl = data.chart_url;
+            }
+
+            let html = `
+                <div class="mb-3">
+                    <h5><i class="fas fa-chart-bar"></i> 股票分析结果</h5>
+                    <p class="text-muted">分析时间: ${new Date().toLocaleString()}</p>
+                </div>
+            `;
+
+            Object.entries(stocks).forEach(([code, stockData]) => {
+                const hasError = stockData.error;
+                html += `
+                    <div class="card mb-3 ${hasError ? 'border-danger' : ''}">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <h6 class="card-title mb-0">
+                                    ${stockData.company_info?.company_name || stockData.name || code} (${code})
+                                </h6>
+                                <span class="badge ${hasError ? 'bg-danger' : 'bg-success'}">
+                                    ${hasError ? '分析失败' : '分析成功'}
+                                </span>
+                            </div>
+                            ${hasError ? displayError(stockData.error) : displayStockDetails(stockData)}
+                        </div>
+                    </div>
+                `;
+            });
+
+            // 添加图表链接
+            if (chartUrl) {
+                html += `
+                    <div class="text-center mb-3">
+                        <a href="${chartUrl}" target="_blank" class="btn btn-primary">
+                            <i class="fas fa-chart-line"></i> 查看详细图表
+                        </a>
+                    </div>
+                `;
+            }
+
+            resultContainer.innerHTML = html;
+            resultContainer.style.display = 'block';
+        }
+
+        // 显示股票详情
+        function displayStockDetails(stockData) {
+            let html = '<div class="row">';
+
+            // 估值信息
+            if (stockData.valuation && Object.keys(stockData.valuation).length > 0) {
+                const v = stockData.valuation;
+                html += `
+                    <div class="col-md-4 mb-3">
+                        <h6 class="text-primary">估值指标</h6>
+                        <div class="small">
+                            <div><strong>PE:</strong> ${v.pe || 'N/A'}</div>
+                            <div><strong>PB:</strong> ${v.pb || 'N/A'}</div>
+                            <div><strong>PS:</strong> ${v.ps || 'N/A'}</div>
+                            <div><strong>市值:</strong> ${v.market_cap || 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 风险指标
+            if (stockData.risk_metrics) {
+                const r = stockData.risk_metrics;
+                html += `
+                    <div class="col-md-4 mb-3">
+                        <h6 class="text-success">风险指标</h6>
+                        <div class="small">
+                            <div><strong>年化收益:</strong> ${(r.annual_return ? (r.annual_return * 100).toFixed(2) : 0)}%</div>
+                            <div><strong>波动率:</strong> ${(r.volatility ? (r.volatility * 100).toFixed(2) : 0)}%</div>
+                            <div><strong>夏普比率:</strong> ${(r.sharpe_ratio || 0).toFixed(2)}</div>
+                            <div><strong>最大回撤:</strong> ${(r.max_drawdown ? (r.max_drawdown * 100).toFixed(2) : 0)}%</div>
+                            <div><strong>胜率:</strong> ${(r.win_rate ? (r.win_rate * 100).toFixed(1) : 0)}%</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 公司基本信息
+            if (stockData.company_info) {
+                const info = stockData.company_info;
+                html += `
+                    <div class="col-md-4 mb-3">
+                        <h6 class="text-warning">公司信息</h6>
+                        <div class="small">
+                            <div><strong>公司全名:</strong> ${info.company_full_name || 'N/A'}</div>
+                            <div><strong>行业:</strong> ${info.industry || 'N/A'}</div>
+                            <div><strong>板块:</strong> ${info.sector || 'N/A'}</div>
+                            <div><strong>董事长:</strong> ${info.chairman || 'N/A'}</div>
+                            <div><strong>上市日期:</strong> ${info.list_date ? new Date(info.list_date).toLocaleDateString() : 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            // 最新价格和技术指标
+            if (stockData.time_windows && stockData.time_windows['T-0']) {
+                const latest = stockData.time_windows['T-0'].latest_indicators;
+                html += `
+                    <div class="col-md-4 mb-3">
+                        <h6 class="text-info">最新数据</h6>
+                        <div class="small">
+                            <div><strong>当前价格:</strong> ¥${latest.price?.toFixed(2) || 'N/A'}</div>
+                            <div><strong>今日涨幅:</strong> ${latest.price_change_pct?.toFixed(2) || '0'}%</div>
+                            <div><strong>成交量:</strong> ${(latest.volume / 10000).toFixed(0)}万</div>
+                            <div><strong>RSI:</strong> ${latest.rsi?.toFixed(2) || 'N/A'}</div>
+                            <div><strong>MACD:</strong> ${latest.macd?.toFixed(4) || 'N/A'}</div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            html += '</div>';
+            return html;
+        }
+
+        // 显示错误信息
+        function displayError(error) {
+            return `
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle"></i> ${error}
+                </div>
+            `;
+        }
+
+        // 测试股票分析
+        async function testAnalyzeStock() {
+            const stockCode = document.getElementById('stockInput').value.trim();
+            if (!stockCode) {
+                alert('请输入股票代码');
+                return;
+            }
+
+            console.log('开始分析股票:', stockCode);
+            const resultContainer = document.getElementById('stockResult');
+            resultContainer.style.display = 'none';
+
+            try {
+                const response = await fetch(`/api/v1/stocks/${encodeURIComponent(stockCode)}`);
+                const data = await response.json();
+
+                console.log('API响应:', data);
+
+                if (data.success) {
+                    displayStockResult(data);
+                } else {
+                    resultContainer.innerHTML = `
+                        <div class="alert alert-danger">
+                            分析失败: ${data.error || '未知错误'}
+                        </div>
+                    `;
+                    resultContainer.style.display = 'block';
+                }
+            } catch (error) {
+                console.error('请求错误:', error);
+                resultContainer.innerHTML = `
+                    <div class="alert alert-danger">
+                        网络错误: ${error.message}
+                    </div>
+                `;
+                resultContainer.style.display = 'block';
+            }
+        }
+    </script>
+</body>
+</html>
