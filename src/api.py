@@ -486,7 +486,7 @@ async def get_index_constituents(index_name: str, limit: Optional[int] = None, g
 
                 # 添加HTML文件路径到响应
                 response_data["html_file"] = html_filename
-                response_data["html_url"] = f"/report/{html_filename}"
+                response_data["html_url"] = f"/api/v1/report/{html_filename}"
                 response_data["html_generated_count"] = total_count  # 说明HTML包含的数据量
 
                 logger.info(f"已生成指数成分股HTML文件: {html_filepath} (包含{total_count}只股票)")
@@ -629,7 +629,7 @@ async def get_constituents_with_details(index_name: str, limit: Optional[int] = 
 
                 # 添加HTML文件路径到响应
                 response_data["html_file"] = html_filename
-                response_data["html_url"] = f"/report/{html_filename}"
+                response_data["html_url"] = f"/api/v1/report/{html_filename}"
 
                 logger.info(f"已生成指数详细成分股HTML文件: {html_filepath}")
 
@@ -725,7 +725,7 @@ async def get_stock_profile(stock_code: str, generate_html: Optional[bool] = Fal
 
                 # 添加HTML文件路径到响应
                 response_data["html_file"] = html_filename
-                response_data["html_url"] = f"/report/{html_filename}"
+                response_data["html_url"] = f"/api/v1/report/{html_filename}"
 
                 logger.info(f"已生成股票资料HTML文件: {html_filepath}")
 
